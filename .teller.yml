@@ -5,8 +5,6 @@ providers:
       - id: secrets
         path: projects/vfarcic
         keys:
-          upbound-account: UP_ACCOUNT
-          upbound-token: UP_TOKEN
           aws-access-key-id: AWS_ACCESS_KEY_ID
           aws-secret-access-key: AWS_SECRET_ACCESS_KEY
           azure-tenant: AZURE_TENANT
