@@ -115,109 +115,107 @@ _items = [
                 instanceClass = "db.m5.8xlarge"
             engineVersion = oxr.spec.parameters.version
         }
+    },
+    {
+        **oxr
+        if "rdsinstance" in _ocds:
+            status.address = _ocds["rdsinstance"].Resource.status.atProvider.address
     }
 ]
 
-items = _items
-# _items = [{
-#     apiVersion = "kubernetes.crossplane.io/v1alpha2"
-#     kind = "Object"
-#     metadata = {
-#         name = oxr.spec.id + "-secret"
-#         annotations = {
-#             "krm.kcl.dev/ready": "True"
-#             "krm.kcl.dev/composition-resource-name" = "sql-secret"
-#         }
-#     }
-#     spec = {
-#         references = [{
-#             patchesFrom = {
-#                 apiVersion = "rds.aws.upbound.io/v1beta1"
-#                 kind = "Instance"
-#                 name = oxr.spec.id
-#                 namespace = "crossplane-system"
-#                 fieldPath = "spec.forProvider.username"
-#             }
-#             toFieldPath = "stringData.username"
-#         }, {
-#             patchesFrom = {
-#                 apiVersion = "v1"
-#                 kind = "Secret"
-#                 name = oxr.spec.id + "-password"
-#                 namespace = oxr.spec.claimRef.namespace
-#                 fieldPath = "data.password"
-#             }
-#             toFieldPath = "data.password"
-#         }, {
-#             patchesFrom = {
-#                 apiVersion = "rds.aws.upbound.io/v1beta1"
-#                 kind = "Instance"
-#                 name = oxr.spec.id
-#                 namespace = "crossplane-system"
-#                 fieldPath = "status.atProvider.address"
-#             }
-#             toFieldPath = "stringData.endpoint"
-#         }]
-#         forProvider.manifest = {
-#             apiVersion = "v1"
-#             kind = "Secret"
-#             metadata = {
-#                 name = oxr.spec.id
-#                 namespace = oxr.spec.claimRef.namespace
-#             }
-#             data.port = "NTQzMg=="
-#         }
-#         providerConfigRef.name = oxr.spec.id + "-sql"
-#     }
-# }, {
-#     **oxr
-#     if "rdsinstance" in ocds:
-#         status.address = ocds["rdsinstance"].Resource.status.atProvider.address
-# }]
+_zoneList = [
+    { zone = "a", cidrBlock = "11.0.0.0/24" },
+    { zone = "b", cidrBlock = "11.0.1.0/24"  },
+    { zone = "c", cidrBlock = "11.0.2.0/24"  }
+]
 
-# _zoneList = [
-#     { zone = "a", cidrBlock = "11.0.0.0/24" },
-#     { zone = "b", cidrBlock = "11.0.1.0/24"  },
-#     { zone = "c", cidrBlock = "11.0.2.0/24"  }
-# ]
+_routeTableAssociations = [
+    v1beta1.RouteTableAssociation {
+        metadata = {
+            name = oxr.spec.id + "-1" + _data.zone
+            annotations = {
+                "krm.kcl.dev/composition-resource-name" = "routeTableAssociation1" + _data.zone
+            }
+        }
+        spec.forProvider = v1beta1.Ec2AwsUpboundIoV1beta1RouteTableAssociationSpecForProvider{
+            region = _region
+            routeTableIdSelector.matchControllerRef = True
+            subnetIdSelector = v1beta1.Ec2AwsUpboundIoV1beta1RouteTableAssociationSpecForProviderSubnetIDSelector{
+                matchControllerRef = True
+                matchLabels = { zone = _region + _data.zone }
+            }
+        }
+    } for _data in _zoneList
+]
 
-# _items += [{
-#     apiVersion = "ec2.aws.upbound.io/v1beta1"
-#     kind = "RouteTableAssociation"
-#     metadata = {
-#         name = oxr.spec.id + "-1" + _data.zone
-#         annotations = {
-#             "krm.kcl.dev/composition-resource-name" = "routeTableAssociation1" + _data.zone
-#         }
-#     }
-#     spec.forProvider = {
-#         region = _region
-#         routeTableIdSelector.matchControllerRef = True
-#         subnetIdSelector = {
-#             matchControllerRef = True
-#             matchLabels.zone = _region + _data.zone
-#         }
-#     }
-# } for _data in _zoneList]
+_subnets = [
+    v1beta1.Subnet {
+        metadata = {
+            name = oxr.spec.id + "-" + _data.zone
+            annotations = {
+                "krm.kcl.dev/composition-resource-name" = "subnet-" + _data.zone
+            }
+            labels = { zone = _region + _data.zone }
+        }
+        spec.forProvider = v1beta1.Ec2AwsUpboundIoV1beta1SubnetSpecForProvider{
+            region = _region
+            availabilityZone = _region + _data.zone
+            cidrBlock = _data.cidrBlock
+            vpcIdSelector.matchControllerRef = True
+        }
+    } for _data in _zoneList
+]
 
-# _items += [{
-#     apiVersion = "ec2.aws.upbound.io/v1beta1"
-#     kind = "Subnet"
-#     metadata = {
-#         name = oxr.spec.id + "-" + _data.zone
-#         annotations = {
-#             "krm.kcl.dev/composition-resource-name" = "subnet-" + _data.zone
-#         }
-#         labels = {
-#             zone = _region + _data.zone
-#         }
-#     }
-#     spec.forProvider = {
-#         region = _region
-#         availabilityZone = _region + _data.zone
-#         cidrBlock = _data.cidrBlock
-#         vpcIdSelector.matchControllerRef = True
-#     }
-# } for _data in _zoneList]
+_objects = [{
+    apiVersion = "kubernetes.crossplane.io/v1alpha2"
+    kind = "Object"
+    metadata = {
+        name = oxr.spec.id + "-secret"
+        annotations = {
+            "krm.kcl.dev/ready": "True"
+            "krm.kcl.dev/composition-resource-name" = "sql-secret"
+        }
+    }
+    spec = {
+        references = [{
+            patchesFrom = {
+                apiVersion = "rds.aws.upbound.io/v1beta1"
+                kind = "Instance"
+                name = oxr.spec.id
+                namespace = "crossplane-system"
+                fieldPath = "spec.forProvider.username"
+            }
+            toFieldPath = "stringData.username"
+        }, {
+            patchesFrom = {
+                apiVersion = "v1"
+                kind = "Secret"
+                name = oxr.spec.id + "-password"
+                namespace = oxr.spec.claimRef.namespace
+                fieldPath = "data.password"
+            }
+            toFieldPath = "data.password"
+        }, {
+            patchesFrom = {
+                apiVersion = "rds.aws.upbound.io/v1beta1"
+                kind = "Instance"
+                name = oxr.spec.id
+                namespace = "crossplane-system"
+                fieldPath = "status.atProvider.address"
+            }
+            toFieldPath = "stringData.endpoint"
+        }]
+        forProvider.manifest = {
+            apiVersion = "v1"
+            kind = "Secret"
+            metadata = {
+                name = oxr.spec.id
+                namespace = oxr.spec.claimRef.namespace
+            }
+            data.port = "NTQzMg=="
+        }
+        providerConfigRef.name = oxr.spec.id + "-sql"
+    }
+}]
 
-# items = _items
+items = _items + _routeTableAssociations + _subnets + _objects
